@@ -142,27 +142,49 @@ st['g2b_net'] = st['g_gst'] - st['cn_gst']
 st['diff'] = st['g2b_net'] - st['books_net']
 print('stats ok:', {k: round(v,2) for k, v in st.items()})
 
-# ------------------------------------------------------------------ sheet B: invoice-wise
-colsB = ['branch','Date','Particulars','gst','inv','Supplier Invoice Date','book_month',
-         'b_gtax','b_gig','b_gcg','b_gsg','b_gst','b_gm','b_ginv','status','reason']
-dfB = bk[colsB].copy()
+# ------------------------------------------------------------------ sheet B: invoice-wise (Books vs GSTR-2B side by side)
+dfB = bk[['branch','Date','Particulars','gst','inv','Supplier Invoice Date','book_month',
+          'taxable','IGST TAX','CGST TAX','SGST TAX','gst_total','Gross Total',
+          'b_gtax','b_gig','b_gcg','b_gsg','b_ggst','b_gm','b_ginv','dup','status','reason']].copy()
 dfB.columns = ['Branch','Book Date','Supplier','Supplier GSTIN','Invoice No (Books)',
-               'Invoice Date (per books)','Book Month','Taxable (GSTR-2B)','IGST (GSTR-2B)',
-               'CGST (GSTR-2B)','SGST (GSTR-2B)','Total GST (GSTR-2B)','GSTR-2B Month',
-               'Invoice No (GSTR-2B)','Status','Remarks']
-for c in ['Taxable (GSTR-2B)','IGST (GSTR-2B)','CGST (GSTR-2B)','SGST (GSTR-2B)','Total GST (GSTR-2B)']:
+               'Invoice Date (per books)','Book Month',
+               'Taxable (Books)','IGST (Books)','CGST (Books)','SGST (Books)','Total GST (Books)',
+               'Gross (Books)',
+               'Taxable (GSTR-2B)','IGST (GSTR-2B)','CGST (GSTR-2B)','SGST (GSTR-2B)',
+               'Total GST (GSTR-2B)','GSTR-2B Month','Invoice No (GSTR-2B)',
+               'Duplicate Booking','Status','Remarks']
+for c in ['Taxable (Books)','IGST (Books)','CGST (Books)','SGST (Books)','Total GST (Books)',
+          'Gross (Books)','Taxable (GSTR-2B)','IGST (GSTR-2B)','CGST (GSTR-2B)','SGST (GSTR-2B)',
+          'Total GST (GSTR-2B)']:
     dfB[c] = dfB[c].round(2)
+dfB['Diff Taxable (Books - 2B)'] = (dfB['Taxable (Books)'] - dfB['Taxable (GSTR-2B)']).round(2)
+dfB['Diff IGST (Books - 2B)'] = (dfB['IGST (Books)'] - dfB['IGST (GSTR-2B)']).round(2)
+dfB['Diff CGST (Books - 2B)'] = (dfB['CGST (Books)'] - dfB['CGST (GSTR-2B)']).round(2)
+dfB['Diff SGST (Books - 2B)'] = (dfB['SGST (Books)'] - dfB['SGST (GSTR-2B)']).round(2)
+dfB['Diff Total GST (Books - 2B)'] = (dfB['Total GST (Books)'] - dfB['Total GST (GSTR-2B)']).round(2)
+dfB['Duplicate Booking'] = np.where(dfB['Duplicate Booking'], 'Yes', '')
 dfB = dfB.sort_values(['Status','Supplier','Book Date'])
 dfB.insert(0, 'S.No', np.arange(1, len(dfB)+1))
 
 g_rem = g[~g['used']].copy()
 dfB2 = g_rem[['trade_name','gst','inv','inv_date_dt','taxable','igst','cgst','sgst',
-              'gst_total','g2b_month','cat']].copy()
+              'gst_total','gross','g2b_month','cat']].copy()
 dfB2.columns = ['Supplier','Supplier GSTIN','Invoice No (GSTR-2B)','Invoice Date (2B)',
-                'Taxable','IGST','CGST','SGST','Total GST','GSTR-2B Month','Status/Reason']
-dfB2.insert(0, 'Section', 'IN GSTR-2B, NOT IN BOOKS')
-for c in ['Taxable','IGST','CGST','SGST','Total GST']: dfB2[c] = dfB2[c].round(2)
-dfB2['S.No'] = ''
+                'Taxable (GSTR-2B)','IGST (GSTR-2B)','CGST (GSTR-2B)','SGST (GSTR-2B)',
+                'Total GST (GSTR-2B)','Gross (2B)','GSTR-2B Month','Status/Reason']
+dfB2['Remarks'] = dfB2.pop('Status/Reason')
+dfB2['Branch'] = ''; dfB2['Book Date'] = ''; dfB2['Book Month'] = ''
+dfB2['Invoice No (Books)'] = ''
+for c in ['Taxable (Books)','IGST (Books)','CGST (Books)','SGST (Books)','Total GST (Books)','Gross (Books)']:
+    dfB2[c] = 0.0
+for c in ['Taxable (GSTR-2B)','IGST (GSTR-2B)','CGST (GSTR-2B)','SGST (GSTR-2B)','Total GST (GSTR-2B)','Gross (2B)']:
+    dfB2[c] = dfB2[c].round(2)
+dfB2['Diff Taxable (Books - 2B)'] = -dfB2['Taxable (GSTR-2B)']
+dfB2['Diff IGST (Books - 2B)'] = -dfB2['IGST (GSTR-2B)']
+dfB2['Diff CGST (Books - 2B)'] = -dfB2['CGST (GSTR-2B)']
+dfB2['Diff SGST (Books - 2B)'] = -dfB2['SGST (GSTR-2B)']
+dfB2['Diff Total GST (Books - 2B)'] = -dfB2['Total GST (GSTR-2B)']
+dfB2['Duplicate Booking'] = ''
 dfB2 = dfB2.reindex(dfB.columns, axis=1)
 
 # ------------------------------------------------------------------ sheet C: exceptions

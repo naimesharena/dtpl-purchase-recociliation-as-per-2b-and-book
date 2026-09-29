@@ -479,7 +479,7 @@ for gst in set(bygst_b) & set(bygst_g):
 bk['g_idx'] = match
 pickle.dump(bk, open('/tmp/bk_final.pkl', 'wb'))
 pickle.dump(g, open('/tmp/g_final.pkl', 'wb'))
-
+pickle.dump(cdnr, open('/tmp/cdnr_final.pkl', 'wb'))
 rem_bk = bk[bk['g_idx'] < 0]
 rem_g = g[~g.index.isin(used_g)]
 print('Books rows matched:', int((match >= 0).sum()), '/', len(bk),
