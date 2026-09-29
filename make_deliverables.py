@@ -165,6 +165,16 @@ dfB['Diff Total GST (Books - 2B)'] = (dfB['Total GST (Books)'] - dfB['Total GST 
 dfB['Duplicate Booking'] = np.where(dfB['Duplicate Booking'], 'Yes', '')
 dfB = dfB.sort_values(['Status','Supplier','Book Date'])
 dfB.insert(0, 'S.No', np.arange(1, len(dfB)+1))
+dfB = dfB[['S.No','Branch','Book Date','Supplier','Supplier GSTIN',
+           'Invoice No (Books)','Invoice No (GSTR-2B)','Invoice Date (per books)',
+           'Book Month','GSTR-2B Month',
+           'Taxable (Books)','IGST (Books)','CGST (Books)','SGST (Books)',
+           'Total GST (Books)','Gross (Books)',
+           'Taxable (GSTR-2B)','IGST (GSTR-2B)','CGST (GSTR-2B)','SGST (GSTR-2B)',
+           'Total GST (GSTR-2B)',
+           'Diff Taxable (Books - 2B)','Diff IGST (Books - 2B)','Diff CGST (Books - 2B)',
+           'Diff SGST (Books - 2B)','Diff Total GST (Books - 2B)',
+           'Duplicate Booking','Status','Remarks']]
 
 g_rem = g[~g['used']].copy()
 dfB2 = g_rem[['trade_name','gst','inv','inv_date_dt','taxable','igst','cgst','sgst',
@@ -263,6 +273,103 @@ dfD.columns = ['Branch','Date','Supplier','Supplier GSTIN','Debit Note No','Book
                'CN Month (2B)','Gross Value','IGST','CGST','SGST','Total GST (as booked)',
                'Status','Remarks']
 
+# ------------------------------------------------------------------ bridge line-item details
+BLINE = {key: lab for lab, key in BLABELS}
+LINE_ORDER = {key: i for i, (lab, key) in enumerate(BLABELS)}
+
+def bridge_detail():
+    recs = []
+    def add(line, m, rtype, branch, date, sup, gst, inv_b, inv_g, bm, gm, t, ig, cg, sg, note=''):
+        if m not in MONTHS: return
+        recs.append({'Month': m, 'Line': BLINE.get(line, 'Final Difference'), '_o': LINE_ORDER.get(line, 99),
+                     'Type': rtype, 'Branch': branch, 'Date': date, 'Supplier': sup, 'GSTIN': gst,
+                     'Invoice/Note No (Books)': inv_b, 'Invoice/Note No (2B)': inv_g,
+                     'Book Month': bm, 'GSTR-2B Month': gm,
+                     'Taxable': round(t, 2), 'IGST': round(ig, 2), 'CGST': round(cg, 2),
+                     'SGST': round(sg, 2), 'Total GST': round(ig + cg + sg, 2), 'Remarks': note})
+    for r in bk.itertuples():
+        add('books', r.book_month, 'Invoice', r.branch, r.Date, r.Particulars, r.gst,
+            r.inv, '', r.book_month, r.b_gm, r.b_tax, r.b_ig, r.b_cg, r.b_sg)
+    for r in dn.itertuples():
+        add('books', r.book_month, 'Debit Note', r.branch, r.Date, r.Particulars, r.gst,
+            r.note, '', r.book_month, r.c_gm, -r.d_tax, -r.d_ig, -r.d_cg, -r.d_sg, 'reduces ITC')
+    for r in g.itertuples():
+        add('g2b', r.g2b_month, 'Invoice (2B)', '', r.inv_date_dt, r.trade_name, r.gst,
+            '', r.inv, '', r.g2b_month, r.taxable, r.igst, r.cgst, r.sgst,
+            r.cat if not r.used else '')
+    for r in cdnr.itertuples():
+        add('g2b', r.g2b_month, 'Credit Note (2B)', '', r.note_date, r.trade_name, r.gst,
+            '', r.note, '', r.g2b_month, -r.taxable, -r.igst, -r.cgst, -r.sgst, 'reduces ITC')
+    for r in bk.itertuples():
+        if r.g_idx < 0:
+            add('bk_only', r.book_month, 'Invoice', r.branch, r.Date, r.Particulars, r.gst,
+                r.inv, '', r.book_month, '', -r.b_tax, -r.b_ig, -r.b_cg, -r.b_sg, r.b_base)
+            continue
+        if r.b_gm == r.book_month:
+            t = r.b_gtax - r.b_tax; ig = r.b_gig - r.b_ig; cg = r.b_gcg - r.b_cg; sg = r.b_gsg - r.b_sg
+            if abs(t) + abs(ig) + abs(cg) + abs(sg) > 1e-9:
+                if r.b_gst == 0 and r.b_ggst > 0:
+                    add('g2b_new', r.book_month, 'Invoice (2B)', r.branch, r.Date, r.Particulars,
+                        r.gst, r.inv, r.b_ginv, r.book_month, r.b_gm, t, ig, cg, sg,
+                        'ITC in 2B not claimed in books (booked w/o GST split)')
+                else:
+                    add('other', r.book_month, 'Invoice (2B)', r.branch, r.Date, r.Particulars,
+                        r.gst, r.inv, r.b_ginv, r.book_month, r.b_gm, t, ig, cg, sg,
+                        'GST value mismatch / rounding (2B - Books)')
+        else:
+            # both months are affected (mirrors the bridge exactly)
+            if r.b_gm > r.book_month:
+                add('tm_out', r.book_month, 'Invoice', r.branch, r.Date, r.Particulars, r.gst,
+                    r.inv, r.b_ginv, r.book_month, r.b_gm,
+                    -r.b_tax, -r.b_ig, -r.b_cg, -r.b_sg,
+                    'ITC reflected in subsequent GSTR-2B month ' + r.b_gm)
+            else:
+                add('tm_out', r.book_month, 'Invoice', r.branch, r.Date, r.Particulars, r.gst,
+                    r.inv, r.b_ginv, r.book_month, r.b_gm,
+                    -r.b_tax, -r.b_ig, -r.b_cg, -r.b_sg,
+                    'ITC was in earlier GSTR-2B month ' + r.b_gm)
+            add('tm_in', r.b_gm, 'Invoice (2B)', r.branch, r.Date, r.Particulars, r.gst,
+                r.inv, r.b_ginv, r.book_month, r.b_gm,
+                r.b_gtax, r.b_gig, r.b_gcg, r.b_gsg,
+                'booked in ' + ('earlier' if r.b_gm > r.book_month else 'subsequent') + ' month ' + r.book_month)
+    for r in g.itertuples():
+        if not r.used:
+            add('g2b_new', r.g2b_month, 'Invoice (2B)', '', r.inv_date_dt, r.trade_name, r.gst,
+                '', r.inv, '', r.g2b_month, r.taxable, r.igst, r.cgst, r.sgst, r.cat)
+    for r in dn.itertuples():
+        if r.c_idx < 0:
+            add('bk_only', r.book_month, 'Debit Note', r.branch, r.Date, r.Particulars, r.gst,
+                r.note, '', r.book_month, '', r.d_tax, r.d_ig, r.d_cg, r.d_sg,
+                'debit note in books, no credit note in GSTR-2B')
+            continue
+        ci = r.c_idx; c = cdnr.loc[ci]
+        if r.c_gm == r.book_month:
+            t = r.d_tax - c['taxable']; ig = r.d_ig - c['igst']; cg = r.d_cg - c['cgst']; sg = r.d_sg - c['sgst']
+            if abs(t) + abs(ig) + abs(cg) + abs(sg) > 1e-9:
+                add('dn_cn_adj', r.book_month, 'Debit Note', r.branch, r.Date, r.Particulars, r.gst,
+                    r.note, c['note'], r.book_month, r.c_gm, t, ig, cg, sg,
+                    'DN/CN value difference (DN - CN)')
+        else:
+            add('dn_cn_adj', r.book_month, 'Debit Note', r.branch, r.Date, r.Particulars, r.gst,
+                r.note, c['note'], r.book_month, r.c_gm, r.d_tax, r.d_ig, r.d_cg, r.d_sg,
+                'credit note appears in GSTR-2B month ' + r.c_gm)
+            add('dn_cn_adj', r.c_gm, 'Credit Note (2B)', r.branch, r.Date, r.Particulars, r.gst,
+                r.note, c['note'], r.book_month, r.c_gm,
+                -c['taxable'], -c['igst'], -c['cgst'], -c['sgst'],
+                'debit note booked in earlier month ' + r.book_month)
+    for r in cdnr.itertuples():
+        if not r.used:
+            add('g2b_new', r.g2b_month, 'Credit Note (2B)', '', r.note_date, r.trade_name, r.gst,
+                '', r.note, '', r.g2b_month, -r.taxable, -r.igst, -r.cgst, -r.sgst,
+                'credit note in GSTR-2B, no debit note in books')
+    for m in MONTHS:
+        add('final', m, 'Check', '', None, '', '', '', '', '', '', 0, 0, 0, 0,
+            'bridge closes (zero by construction)')
+    df = pd.DataFrame(recs)
+    df = df.sort_values(['Month', '_o', 'Line', 'Supplier', 'Total GST'],
+                        ascending=[True, True, True, True, False])
+    return df.drop(columns='_o')
+
 # ------------------------------------------------------------------ Excel
 XL = 'GST_ITC_Reconciliation_FY2025-26.xlsx'
 with pd.ExcelWriter(XL, engine='openpyxl') as W:
@@ -277,6 +384,8 @@ with pd.ExcelWriter(XL, engine='openpyxl') as W:
     sheetA_rows.extend(TOTBLK)
     pd.DataFrame(sheetA_rows, columns=['Particulars','Taxable','IGST','CGST','SGST/UTGST','Total GST']).to_excel(
         W, sheet_name='A. Monthly Bridge', index=False, startrow=1)
+    # A2. bridge line-item details (every invoice behind each bridge line, month by month)
+    bridge_detail().to_excel(W, sheet_name='A2. Bridge Line Details', index=False)
     # B. invoice-wise
     dfB.to_excel(W, sheet_name='B. Invoice Reconciliation', index=False)
     dfB2.to_excel(W, sheet_name='B. Invoice Reconciliation', index=False,
@@ -372,6 +481,8 @@ A('')
 A('## 2. Section A - Month-wise Summary Reconciliation')
 A('')
 A('Format: Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST. The bridge converts ITC as per Books into ITC as per GSTR-2B month by month; "Final Difference" is zero in every month by construction (all differences are explained).')
+A('')
+A('**Line-item drill-down:** every rupee of each bridge line is traced to the underlying invoice/note in Excel sheet **A2. Bridge Line Details** (Month | Line | Type | Supplier | GSTIN | Invoice No (Books) | Invoice No (2B) | Book Month | 2B Month | Taxable | IGST | CGST | SGST | Total GST | Remarks). Filter by Month + Line to see exactly which invoices sit behind each bridge row - e.g. Line = "Add: ITC in GSTR-2B not booked in Books" + Month = Sep-25 lists the Parth credit notes and the 2B invoices not present in books for that month.')
 A('')
 for m in MONTHS + ['TOTAL']:
     A(f'### {MLBL[MONTHS.index(m)]} ' if m != 'TOTAL' else '### TOTAL (FY 2025-26)')

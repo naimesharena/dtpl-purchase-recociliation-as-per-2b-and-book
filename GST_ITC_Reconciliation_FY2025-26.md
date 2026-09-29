@@ -16,6 +16,8 @@
 
 Format: Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST. The bridge converts ITC as per Books into ITC as per GSTR-2B month by month; "Final Difference" is zero in every month by construction (all differences are explained).
 
+**Line-item drill-down:** every rupee of each bridge line is traced to the underlying invoice/note in Excel sheet **A2. Bridge Line Details** (Month | Line | Type | Supplier | GSTIN | Invoice No (Books) | Invoice No (2B) | Book Month | 2B Month | Taxable | IGST | CGST | SGST | Total GST | Remarks). Filter by Month + Line to see exactly which invoices sit behind each bridge row - e.g. Line = "Add: ITC in GSTR-2B not booked in Books" + Month = Sep-25 lists the Parth credit notes and the 2B invoices not present in books for that month.
+
 ### Apr-25 
 
 | Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST |
