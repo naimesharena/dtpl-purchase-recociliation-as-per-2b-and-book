@@ -4,6 +4,8 @@
 
 **Matching basis:** supplier GSTIN + invoice number (fuzzy where mistyped), invoice date, taxable value, IGST/CGST/SGST and gross amount (rupee-level rounding tolerance Rs 1). Duplicate bookings in books are flagged, not removed.
 
+**Note on debit/credit notes:** the "Debit Note" register in the books records the supplier credit notes (ITC reductions); these are matched against the credit notes (CDN) reported by the supplier in GSTR-2B. Updated DEBIT NOTE-HR/PL/VL files (with corrected Gross Total values) are used in this report.
+
 ## 1. Headline position (Rs)
 
 | Particulars | IGST | CGST | SGST/UTGST | Total GST |
@@ -22,12 +24,12 @@ Format: Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST. The bridge
 
 | Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST |
 |---|---|---|---|---|---|
-| ITC as per Books | 19,712,192.65 | 3,450,613.81 | 251,889.43 | 251,889.43 | 3,954,392.67 |
+| ITC as per Books | 19,701,627.43 | 3,450,613.81 | 251,889.43 | 251,889.43 | 3,954,392.67 |
 | Add: ITC in GSTR-2B not booked in Books | 710,531.16 | 69,451.78 | 49,208.89 | 49,208.89 | 167,869.56 |
 | Less: ITC booked in Books not in GSTR-2B | -1,491,171.89 | -69,451.79 | -5,352.77 | -5,352.77 | -80,157.33 |
 | Add/Less: Timing difference - previous month ITC received in current month | 6,870.63 | 0.00 | 719.14 | 719.14 | 1,438.28 |
 | Add/Less: Timing difference - current month ITC in subsequent month | -74,927.99 | -11,939.31 | -2,624.35 | -2,624.35 | -17,188.01 |
-| Add/Less: Debit/Credit Note adjustments | -15,251.37 | -0.04 | -587.39 | -587.39 | -1,174.82 |
+| Add/Less: Debit/Credit Note adjustments | -4,686.15 | -0.04 | -587.39 | -587.39 | -1,174.82 |
 | Other differences | 36,940.30 | 0.13 | -0.09 | -0.09 | -0.05 |
 | ITC as per GSTR-2B | 18,885,183.49 | 3,438,674.58 | 293,252.86 | 293,252.86 | 4,025,180.30 |
 | Final Difference | -0.00 | 0.00 | -0.00 | -0.00 | 0.00 |
@@ -36,12 +38,12 @@ Format: Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST. The bridge
 
 | Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST |
 |---|---|---|---|---|---|
-| ITC as per Books | 12,577,364.41 | 1,787,047.73 | 257,231.81 | 257,231.81 | 2,301,511.35 |
+| ITC as per Books | 12,546,246.44 | 1,787,047.73 | 257,231.81 | 257,231.81 | 2,301,511.35 |
 | Add: ITC in GSTR-2B not booked in Books | 2,308.71 | 696.60 | 46,449.34 | 46,449.34 | 93,595.28 |
 | Less: ITC booked in Books not in GSTR-2B | -339,477.00 | -673.90 | -4,319.96 | -4,319.96 | -9,313.82 |
 | Add/Less: Timing difference - previous month ITC received in current month | 7,488.00 | 0.00 | 954.47 | 954.47 | 1,908.94 |
 | Add/Less: Timing difference - current month ITC in subsequent month | -16,529.24 | -710.90 | -1,580.43 | -1,580.43 | -3,871.76 |
-| Add/Less: Debit/Credit Note adjustments | -22,939.09 | 0.00 | 1,017.82 | 1,017.82 | 2,035.64 |
+| Add/Less: Debit/Credit Note adjustments | 8,178.88 | 0.00 | 1,017.82 | 1,017.82 | 2,035.64 |
 | Other differences | 41,817.93 | -0.01 | 0.09 | 0.09 | 0.17 |
 | ITC as per GSTR-2B | 12,250,033.72 | 1,786,359.52 | 299,753.14 | 299,753.14 | 2,385,865.80 |
 | Final Difference | -0.00 | -0.00 | -0.00 | -0.00 | -0.00 |
@@ -50,12 +52,12 @@ Format: Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST. The bridge
 
 | Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST |
 |---|---|---|---|---|---|
-| ITC as per Books | 12,962,586.59 | 1,600,787.87 | 222,751.82 | 222,751.82 | 2,046,291.51 |
+| ITC as per Books | 12,921,132.11 | 1,600,787.87 | 222,751.82 | 222,751.82 | 2,046,291.51 |
 | Add: ITC in GSTR-2B not booked in Books | 1,949,724.16 | 0.00 | 359,514.72 | 359,514.72 | 719,029.44 |
 | Less: ITC booked in Books not in GSTR-2B | -495,271.00 | 0.00 | 0.00 | 0.00 | 0.00 |
 | Add/Less: Timing difference - previous month ITC received in current month | 38,577.51 | 0.00 | 3,876.99 | 3,876.99 | 7,753.98 |
 | Add/Less: Timing difference - current month ITC in subsequent month | -46,984.66 | 0.00 | -5,283.67 | -5,283.67 | -10,567.34 |
-| Add/Less: Debit/Credit Note adjustments | -41,454.50 | 0.00 | 0.00 | 0.00 | 0.00 |
+| Add/Less: Debit/Credit Note adjustments | -0.02 | 0.00 | 0.00 | 0.00 | 0.00 |
 | Other differences | 43,137.19 | 0.14 | 0.02 | 0.02 | 0.18 |
 | ITC as per GSTR-2B | 14,410,315.29 | 1,600,788.01 | 580,859.88 | 580,859.88 | 2,762,507.77 |
 | Final Difference | -0.00 | -0.00 | 0.00 | 0.00 | -0.00 |
@@ -64,12 +66,12 @@ Format: Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST. The bridge
 
 | Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST |
 |---|---|---|---|---|---|
-| ITC as per Books | 9,473,704.57 | 1,305,964.67 | 226,480.75 | 226,480.75 | 1,758,926.17 |
+| ITC as per Books | 9,462,660.61 | 1,305,964.67 | 226,480.75 | 226,480.75 | 1,758,926.17 |
 | Add: ITC in GSTR-2B not booked in Books | 87,145.18 | 13,451.00 | 600.13 | 600.13 | 14,651.26 |
 | Less: ITC booked in Books not in GSTR-2B | -869,222.04 | -13,412.13 | -67.50 | -67.50 | -13,547.13 |
 | Add/Less: Timing difference - previous month ITC received in current month | 35,636.56 | 0.00 | 3,937.49 | 3,937.49 | 7,874.98 |
 | Add/Less: Timing difference - current month ITC in subsequent month | -22,860.20 | 0.00 | -2,822.40 | -2,822.40 | -5,644.80 |
-| Add/Less: Debit/Credit Note adjustments | -11,043.96 | 0.00 | 0.00 | 0.00 | 0.00 |
+| Add/Less: Debit/Credit Note adjustments | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
 | Other differences | 42,656.69 | -0.07 | 0.08 | 0.08 | 0.09 |
 | ITC as per GSTR-2B | 8,736,016.80 | 1,306,003.47 | 228,128.55 | 228,128.55 | 1,762,260.57 |
 | Final Difference | 0.00 | -0.00 | 0.00 | 0.00 | -0.00 |
@@ -78,12 +80,12 @@ Format: Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST. The bridge
 
 | Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST |
 |---|---|---|---|---|---|
-| ITC as per Books | 9,316,357.88 | 1,620,279.08 | 131,567.49 | 131,567.49 | 1,883,414.06 |
+| ITC as per Books | 9,265,333.16 | 1,620,279.08 | 131,567.49 | 131,567.49 | 1,883,414.06 |
 | Add: ITC in GSTR-2B not booked in Books | 54,444.13 | 14,123.38 | 10.71 | 10.71 | 14,144.80 |
 | Less: ITC booked in Books not in GSTR-2B | -711,722.31 | -14,123.38 | 0.00 | 0.00 | -14,123.38 |
 | Add/Less: Timing difference - previous month ITC received in current month | 1,000.00 | 0.00 | 90.00 | 90.00 | 180.00 |
 | Add/Less: Timing difference - current month ITC in subsequent month | -6,385.24 | 0.00 | -646.88 | -646.88 | -1,293.76 |
-| Add/Less: Debit/Credit Note adjustments | -51,024.64 | 0.00 | 0.00 | 0.00 | 0.00 |
+| Add/Less: Debit/Credit Note adjustments | 0.08 | 0.00 | 0.00 | 0.00 | 0.00 |
 | Other differences | 47,091.10 | -0.04 | 0.14 | 0.14 | 0.24 |
 | ITC as per GSTR-2B | 8,649,760.92 | 1,620,279.04 | 131,021.46 | 131,021.46 | 1,882,321.96 |
 | Final Difference | 0.00 | -0.00 | 0.00 | 0.00 | -0.00 |
@@ -92,12 +94,12 @@ Format: Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST. The bridge
 
 | Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST |
 |---|---|---|---|---|---|
-| ITC as per Books | 13,352,415.31 | 2,146,950.78 | 146,869.53 | 146,869.53 | 2,440,689.84 |
+| ITC as per Books | 13,306,380.37 | 2,146,950.78 | 146,869.53 | 146,869.53 | 2,440,689.84 |
 | Add: ITC in GSTR-2B not booked in Books | -2,164,563.01 | 3,601.52 | -195,083.41 | -195,083.41 | -386,565.30 |
 | Less: ITC booked in Books not in GSTR-2B | -895,907.09 | -7,914.86 | -3,679.10 | -3,679.10 | -15,273.06 |
 | Add/Less: Timing difference - previous month ITC received in current month | 76,364.50 | 13,170.11 | 2,857.28 | 2,857.28 | 18,884.67 |
 | Add/Less: Timing difference - current month ITC in subsequent month | -882.00 | 0.00 | -90.00 | -90.00 | -180.00 |
-| Add/Less: Debit/Credit Note adjustments | -46,034.56 | 0.00 | 0.00 | 0.00 | 0.00 |
+| Add/Less: Debit/Credit Note adjustments | 0.38 | 0.00 | 0.00 | 0.00 | 0.00 |
 | Other differences | 50,111.73 | 0.12 | -0.20 | -0.20 | -0.28 |
 | ITC as per GSTR-2B | 10,371,504.88 | 2,155,807.67 | -49,125.90 | -49,125.90 | 2,057,555.87 |
 | Final Difference | -0.00 | -0.00 | 0.00 | 0.00 | -0.00 |
@@ -106,12 +108,12 @@ Format: Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST. The bridge
 
 | Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST |
 |---|---|---|---|---|---|
-| ITC as per Books | 11,538,350.21 | 1,778,508.14 | 101,294.88 | 101,294.88 | 1,981,097.90 |
+| ITC as per Books | 11,538,166.21 | 1,778,508.14 | 101,294.88 | 101,294.88 | 1,981,097.90 |
 | Add: ITC in GSTR-2B not booked in Books | 7,276.96 | 860.13 | 224.86 | 224.86 | 1,309.85 |
 | Less: ITC booked in Books not in GSTR-2B | -583,923.60 | 0.00 | 0.00 | 0.00 | 0.00 |
 | Add/Less: Timing difference - previous month ITC received in current month | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
 | Add/Less: Timing difference - current month ITC in subsequent month | -11,685.66 | 0.00 | -1,186.17 | -1,186.17 | -2,372.34 |
-| Add/Less: Debit/Credit Note adjustments | -184.12 | 0.00 | 0.00 | 0.00 | 0.00 |
+| Add/Less: Debit/Credit Note adjustments | -0.12 | 0.00 | 0.00 | 0.00 | 0.00 |
 | Other differences | 63,749.48 | 0.16 | 0.03 | 0.03 | 0.22 |
 | ITC as per GSTR-2B | 11,013,583.27 | 1,779,368.43 | 100,333.60 | 100,333.60 | 1,980,035.63 |
 | Final Difference | 0.00 | -0.00 | -0.00 | -0.00 | -0.00 |
@@ -120,12 +122,12 @@ Format: Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST. The bridge
 
 | Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST |
 |---|---|---|---|---|---|
-| ITC as per Books | 13,473,937.30 | 2,089,293.68 | 124,662.82 | 124,662.82 | 2,338,619.32 |
+| ITC as per Books | 13,451,060.80 | 2,089,293.68 | 124,662.82 | 124,662.82 | 2,338,619.32 |
 | Add: ITC in GSTR-2B not booked in Books | 113,758.80 | 16,957.30 | 1,171.29 | 1,171.29 | 19,299.88 |
-| Less: ITC booked in Books not in GSTR-2B | -603,831.97 | -13,501.28 | -2,083.50 | -2,083.50 | -17,668.28 |
+| Less: ITC booked in Books not in GSTR-2B | -602,175.97 | -13,501.28 | -2,083.50 | -2,083.50 | -17,668.28 |
 | Add/Less: Timing difference - previous month ITC received in current month | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
 | Add/Less: Timing difference - current month ITC in subsequent month | -5,648.32 | 0.00 | -508.34 | -508.34 | -1,016.68 |
-| Add/Less: Debit/Credit Note adjustments | -21,220.32 | 0.00 | 0.00 | 0.00 | 0.00 |
+| Add/Less: Debit/Credit Note adjustments | 0.18 | 0.00 | 0.00 | 0.00 | 0.00 |
 | Other differences | 65,292.79 | 0.07 | 0.01 | 0.01 | 0.09 |
 | ITC as per GSTR-2B | 13,022,288.28 | 2,092,749.77 | 123,242.28 | 123,242.28 | 2,339,234.33 |
 | Final Difference | 0.00 | -0.00 | -0.00 | -0.00 | -0.00 |
@@ -134,12 +136,12 @@ Format: Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST. The bridge
 
 | Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST |
 |---|---|---|---|---|---|
-| ITC as per Books | 16,666,457.54 | 2,691,207.83 | 103,445.28 | 103,445.28 | 2,898,098.39 |
+| ITC as per Books | 16,663,080.54 | 2,691,207.83 | 103,445.28 | 103,445.28 | 2,898,098.39 |
 | Add: ITC in GSTR-2B not booked in Books | 35,483.91 | 519.89 | 2,933.60 | 2,933.60 | 6,387.09 |
 | Less: ITC booked in Books not in GSTR-2B | -670,127.04 | 0.00 | -6,211.89 | -6,211.89 | -12,423.78 |
 | Add/Less: Timing difference - previous month ITC received in current month | 7,157.78 | 0.00 | 644.21 | 644.21 | 1,288.42 |
 | Add/Less: Timing difference - current month ITC in subsequent month | -3,799.31 | -519.90 | -82.00 | -82.00 | -683.90 |
-| Add/Less: Debit/Credit Note adjustments | -2,369.51 | 181.33 | 0.00 | 0.00 | 181.33 |
+| Add/Less: Debit/Credit Note adjustments | 1,007.49 | 181.33 | 0.00 | 0.00 | 181.33 |
 | Other differences | 54,329.77 | -0.05 | 0.04 | 0.04 | 0.03 |
 | ITC as per GSTR-2B | 16,087,133.14 | 2,691,389.10 | 100,729.24 | 100,729.24 | 2,892,847.58 |
 | Final Difference | 0.00 | -0.00 | 0.00 | 0.00 | -0.00 |
@@ -148,12 +150,12 @@ Format: Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST. The bridge
 
 | Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST |
 |---|---|---|---|---|---|
-| ITC as per Books | 14,248,498.04 | 2,233,223.43 | 106,618.49 | 106,618.49 | 2,446,460.41 |
+| ITC as per Books | 14,247,044.04 | 2,233,223.43 | 106,618.49 | 106,618.49 | 2,446,460.41 |
 | Add: ITC in GSTR-2B not booked in Books | -7,052.00 | 0.00 | 3,526.00 | 3,526.00 | 7,052.00 |
 | Less: ITC booked in Books not in GSTR-2B | -618,951.54 | -86.18 | -232.63 | -232.63 | -551.44 |
 | Add/Less: Timing difference - previous month ITC received in current month | 6,483.36 | 0.00 | 583.50 | 583.50 | 1,167.00 |
 | Add/Less: Timing difference - current month ITC in subsequent month | -11,278.74 | 0.00 | -1,015.13 | -1,015.13 | -2,030.26 |
-| Add/Less: Debit/Credit Note adjustments | -1,453.72 | 0.00 | 0.00 | 0.00 | 0.00 |
+| Add/Less: Debit/Credit Note adjustments | 0.28 | 0.00 | 0.00 | 0.00 | 0.00 |
 | Other differences | 57,161.64 | 0.17 | 0.03 | 0.03 | 0.23 |
 | ITC as per GSTR-2B | 13,673,407.04 | 2,233,137.42 | 109,480.26 | 109,480.26 | 2,452,097.94 |
 | Final Difference | -0.00 | -0.00 | 0.00 | 0.00 | -0.00 |
@@ -162,12 +164,12 @@ Format: Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST. The bridge
 
 | Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST |
 |---|---|---|---|---|---|
-| ITC as per Books | 12,647,853.35 | 1,935,124.71 | 119,342.81 | 119,342.81 | 2,173,810.33 |
+| ITC as per Books | 12,646,348.35 | 1,935,124.71 | 119,342.81 | 119,342.81 | 2,173,810.33 |
 | Add: ITC in GSTR-2B not booked in Books | 157,866.16 | 14,510.83 | 6,075.00 | 6,075.00 | 26,660.83 |
 | Less: ITC booked in Books not in GSTR-2B | -732,888.91 | -12,701.41 | -5,508.00 | -5,508.00 | -23,717.41 |
 | Add/Less: Timing difference - previous month ITC received in current month | 18,470.00 | 0.00 | 1,662.30 | 1,662.30 | 3,324.60 |
 | Add/Less: Timing difference - current month ITC in subsequent month | -25,232.24 | 0.00 | -1,582.38 | -1,582.38 | -3,164.76 |
-| Add/Less: Debit/Credit Note adjustments | -2,512.71 | -181.41 | 0.00 | 0.00 | -181.41 |
+| Add/Less: Debit/Credit Note adjustments | -1,007.71 | -181.41 | 0.00 | 0.00 | -181.41 |
 | Other differences | 59,265.02 | -0.16 | 0.02 | 0.02 | -0.12 |
 | ITC as per GSTR-2B | 12,122,820.67 | 1,936,752.56 | 119,989.75 | 119,989.75 | 2,176,732.06 |
 | Final Difference | -0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
@@ -176,12 +178,12 @@ Format: Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST. The bridge
 
 | Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST |
 |---|---|---|---|---|---|
-| ITC as per Books | 17,548,750.30 | 2,729,265.42 | 121,061.49 | 121,061.49 | 2,971,388.40 |
+| ITC as per Books | 17,474,561.80 | 2,729,265.42 | 121,061.49 | 121,061.49 | 2,971,388.40 |
 | Add: ITC in GSTR-2B not booked in Books | 467,333.48 | 38,949.92 | 20,577.00 | 20,577.00 | 80,103.92 |
-| Less: ITC booked in Books not in GSTR-2B | -3,051,827.13 | -342,689.92 | -5,687.14 | -5,687.14 | -354,064.20 |
+| Less: ITC booked in Books not in GSTR-2B | -2,979,690.63 | -342,689.92 | -5,687.14 | -5,687.14 | -354,064.20 |
 | Add/Less: Timing difference - previous month ITC received in current month | 29,772.22 | 0.00 | 2,679.50 | 2,679.50 | 5,359.00 |
 | Add/Less: Timing difference - current month ITC in subsequent month | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
-| Add/Less: Debit/Credit Note adjustments | -2,051.36 | 0.00 | 0.00 | 0.00 | 0.00 |
+| Add/Less: Debit/Credit Note adjustments | 0.64 | 0.00 | 0.00 | 0.00 | 0.00 |
 | Other differences | 53,645.87 | 0.12 | 0.01 | 0.01 | 0.14 |
 | ITC as per GSTR-2B | 15,045,623.38 | 2,425,525.54 | 138,630.86 | 138,630.86 | 2,702,787.26 |
 | Final Difference | 0.00 | -0.00 | 0.00 | 0.00 | -0.00 |
@@ -190,12 +192,12 @@ Format: Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST. The bridge
 
 | Particulars | Taxable | IGST | CGST | SGST/UTGST | Total GST |
 |---|---|---|---|---|---|
-| ITC as per Books | 163,518,468.15 | 25,368,267.15 | 1,913,216.60 | 1,913,216.60 | 29,194,700.35 |
+| ITC as per Books | 163,223,641.86 | 25,368,267.15 | 1,913,216.60 | 1,913,216.60 | 29,194,700.35 |
 | Add: ITC in GSTR-2B not booked in Books | 1,414,257.64 | 173,122.35 | 295,208.13 | 295,208.13 | 763,538.61 |
-| Less: ITC booked in Books not in GSTR-2B | -11,064,321.52 | -474,554.85 | -33,142.49 | -33,142.49 | -540,839.83 |
+| Less: ITC booked in Books not in GSTR-2B | -10,990,529.02 | -474,554.85 | -33,142.49 | -33,142.49 | -540,839.83 |
 | Add/Less: Timing difference - previous month ITC received in current month | 227,820.56 | 13,170.11 | 18,004.88 | 18,004.88 | 49,179.87 |
 | Add/Less: Timing difference - current month ITC in subsequent month | -226,213.60 | -13,170.11 | -17,421.75 | -17,421.75 | -48,013.61 |
-| Add/Less: Debit/Credit Note adjustments | -217,539.86 | -0.12 | 430.43 | 430.43 | 860.74 |
+| Add/Less: Debit/Credit Note adjustments | 3,493.93 | -0.12 | 430.43 | 430.43 | 860.74 |
 | Other differences | 615,199.51 | 0.58 | 0.18 | 0.18 | 0.94 |
 | ITC as per GSTR-2B | 154,267,670.88 | 25,066,835.11 | 2,176,295.98 | 2,176,295.98 | 29,419,427.07 |
 | Final Difference | -0.00 | -0.00 | 0.00 | 0.00 | -0.00 |

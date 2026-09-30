@@ -466,6 +466,8 @@ A('**Period:** 01-Apr-2025 to 31-Mar-2026 | **Branches:** HR / PL / VL | **Sourc
 A('')
 A('**Matching basis:** supplier GSTIN + invoice number (fuzzy where mistyped), invoice date, taxable value, IGST/CGST/SGST and gross amount (rupee-level rounding tolerance Rs 1). Duplicate bookings in books are flagged, not removed.')
 A('')
+A('**Note on debit/credit notes:** the "Debit Note" register in the books records the supplier credit notes (ITC reductions); these are matched against the credit notes (CDN) reported by the supplier in GSTR-2B. Updated DEBIT NOTE-HR/PL/VL files (with corrected Gross Total values) are used in this report.')
+A('')
 A('## 1. Headline position (Rs)')
 A('')
 b_ig = bk['b_ig'].sum()-dn['d_ig'].sum(); b_cg = bk['b_cg'].sum()-dn['d_cg'].sum()

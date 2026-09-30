@@ -71,8 +71,22 @@ def lev(a, b):
 
 # ---------------------------------------------------------------- load
 def load_register(path):
-    xl = pd.ExcelFile(path, engine='openpyxl')
-    df = xl.parse(xl.sheet_names[0], header=None)
+    # file may be genuine BIFF .xls or xlsx (zip) saved with .xls extension
+    with open(path, 'rb') as fh:
+        is_zip = fh.read(4) == b'PK\x03\x04'
+    if is_zip:
+        tmp = path + '.tmpxlsx'
+        import shutil
+        shutil.copy(path, tmp)
+        try:
+            xl = pd.ExcelFile(tmp, engine='openpyxl')
+            df = xl.parse(xl.sheet_names[0], header=None)
+        finally:
+            import os
+            os.remove(tmp)
+    else:
+        xl = pd.ExcelFile(path, engine='xlrd')
+        df = xl.parse(xl.sheet_names[0], header=None)
     hdr = None
     for i in range(df.shape[0]):
         rv = [str(v) for v in df.iloc[i].tolist()]
