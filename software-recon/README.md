@@ -22,7 +22,9 @@ Sheets (headers copied verbatim from the sample file):
 | `invoice` | 9,767 | every book invoice (PURCHASE registers) + every GSTR-2B invoice not in books, in the As-per-Records \| As-per-GSTR-2B \| Difference layout with Status, per-row difference block (2B − Books) and a totals row |
 | `note` | 67 | same for DEBIT NOTE register (book side, Note Type "Debit") vs GSTR-2B credit notes (Note Type "Credit") |
 | `invoice_ims`, `note_ims` | 0 | IMS blocks, kept empty as in the sample |
-| `0. Executive Summary` | - | status mix + ITC totals (Books net vs GSTR-2B net, net difference) |
+| `0. Executive Summary` | - | status mix + ITC totals (Books net vs GSTR-2B net, net difference) + where the difference comes from |
+| `A. Monthly Bridge` | - | month-wise ITC bridge: Books -> month differences -> value differences -> (Not in 2B) -> (Not in Rec) = GSTR-2B, plus Final Difference and FY total block |
+| `A2. Bridge Line Details` | 12,454 | every document behind every bridge line (filter by Month + Line); sums tie out exactly to sheet A |
 
 Statuses (same vocabulary as the software):
 `Matched` (amounts equal), `Partly Mat` (matched with differences),
@@ -40,6 +42,11 @@ Verified:
 * totals row equals the register / GSTR-2B sums
 * NET DIFFERENCE (GSTR-2B minus Books) = **+224,726.72 GST** - identical to the
   main project's headline figure, i.e. the same matching, different presentation
+* Monthly Bridge ties out exactly for all 12 months
+  (`Books + month-diff + value-diff - (Not in 2B) + (Not in Rec) = GSTR-2B`),
+  and Books / GSTR-2B / 2B-minus-Books are month-by-month identical to the main
+  project's Monthly Bridge
+* every A2 detail row sums to its sheet-A line, every month (auto-checked)
 
 Result at a glance (GST): Books invoices 29,310,878.53, less debit notes
 116,178.18 → Books net 29,194,700.35; GSTR-2B invoices 29,938,553.72, less
