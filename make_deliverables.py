@@ -353,10 +353,11 @@ def bridge_detail():
             add('dn_cn_adj', r.book_month, 'Debit Note', r.branch, r.Date, r.Particulars, r.gst,
                 r.note, c['note'], r.book_month, r.c_gm, r.d_tax, r.d_ig, r.d_cg, r.d_sg,
                 'credit note appears in GSTR-2B month ' + r.c_gm)
+            dirn = 'earlier' if r.book_month < r.c_gm else 'subsequent'
             add('dn_cn_adj', r.c_gm, 'Credit Note (2B)', r.branch, r.Date, r.Particulars, r.gst,
                 r.note, c['note'], r.book_month, r.c_gm,
                 -c['taxable'], -c['igst'], -c['cgst'], -c['sgst'],
-                'debit note booked in earlier month ' + r.book_month)
+                'debit note booked in %s month %s (DN/CN timing difference)' % (dirn, r.book_month))
     for r in cdnr.itertuples():
         if not r.used:
             add('g2b_new', r.g2b_month, 'Credit Note (2B)', '', r.note_date, r.trade_name, r.gst,
