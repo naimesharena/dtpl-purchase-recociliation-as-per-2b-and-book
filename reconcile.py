@@ -86,10 +86,24 @@ def load_books():
             "Book Round Off": to_num(df.get("Round Off")),
         })
         out["Book Tax"] = out["Book CGST"] + out["Book SGST"] + out["Book IGST"]
-        # taxable = total - tax - round off (for taxed bills); for no-tax bills
-        # the whole value sits in the total (non-GST / ineligible booked at total)
-        out["Book Taxable"] = (out["Book Total"] - out["Book Tax"]
-                               - out["Book Round Off"]).round(2)
+
+        # Taxable value = sum of the expense / asset ledger columns of the voucher.
+        # (Do NOT back-calculate from Gross Total: the client nets off TDS in the
+        #  voucher total, so Total = Taxable + Tax + RoundOff - TDS.)
+        ledger_cols = [c for c in df.columns
+                       if str(c).strip() in ("Purchase Accounts", "Indirect Expenses",
+                                             "Direct Expenses", "Fixed Assets")]
+        ledger = sum(to_num(df[c]) for c in ledger_cols) if ledger_cols else 0.0
+        ledger = pd.Series(ledger, index=out.index).round(2)
+        fallback = (out["Book Total"] - out["Book Tax"] - out["Book Round Off"]).round(2)
+        out["Book Taxable"] = np.where(ledger.abs() > 0.009, ledger, fallback)
+
+        # Gross invoice value as per the bill, before any TDS / other deduction
+        out["Book Invoice Value"] = (out["Book Taxable"] + out["Book Tax"]
+                                     + out["Book Round Off"]).round(2)
+        out["Book TDS / Deduction"] = (out["Book Invoice Value"]
+                                       - out["Book Total"]).round(2)
+        out.loc[out["Book TDS / Deduction"].abs() < 0.01, "Book TDS / Deduction"] = 0.0
         frames.append(out)
 
     b = pd.concat(frames, ignore_index=True)
@@ -151,11 +165,15 @@ def amount_agrees(brow, trow):
     - booked at total  : book total ~ invoice value  (tax merged, not split)
     - ineligible ITC   : book total ~ taxable + tax  (same as invoice value)
     """
-    bt, btax, btot = brow["Book Taxable"], brow["Book Tax"], brow["Book Total"]
+    bt, btax = brow["Book Taxable"], brow["Book Tax"]
+    bgross, btot = brow["Book Invoice Value"], brow["Book Total"]
     return (close(bt, trow["2B Taxable"])
+            or close(bgross, trow["2B Invoice Value"])
+            or close(bgross, trow["2B Taxable"] + trow["2B Tax"])
             or close(btot, trow["2B Invoice Value"])
             or close(btot, trow["2B Taxable"] + trow["2B Tax"])
             or close(btot, trow["2B Taxable"])
+            or close(bgross, trow["2B Taxable"])
             or (close(btax, trow["2B Tax"]) and close(bt, trow["2B Taxable"], 5)))
 
 
@@ -262,8 +280,8 @@ def reconcile(books, t2b):
 # ----------------------------------------------------------------- output
 BOOK_COLS = ["Branch", "Book Date", "Supplier (Books)", "Book GSTIN", "Voucher Type",
              "Voucher No.", "Book Invoice No.", "Book Invoice Date", "Book Taxable",
-             "Book IGST", "Book CGST", "Book SGST", "Book Tax", "Book Total",
-             "Book Nature"]
+             "Book IGST", "Book CGST", "Book SGST", "Book Tax", "Book Invoice Value",
+             "Book TDS / Deduction", "Book Total", "Book Nature"]
 T2B_COLS = ["2B GSTIN", "2B Supplier", "2B Invoice No.", "2B Invoice Date",
             "2B Taxable", "2B IGST", "2B CGST", "2B SGST", "2B Tax",
             "2B Invoice Value", "2B ITC Available", "2B Period"]
@@ -286,7 +304,7 @@ def build_output(pairs):
         if b and c:
             r["Diff - Taxable"] = round(b["Book Taxable"] - c["2B Taxable"], 2)
             r["Diff - Tax"] = round(b["Book Tax"] - c["2B Tax"], 2)
-            r["Diff - Invoice Value"] = round(b["Book Total"] - c["2B Invoice Value"], 2)
+            r["Diff - Invoice Value"] = round(b["Book Invoice Value"] - c["2B Invoice Value"], 2)
             r["GSTIN Same?"] = "Yes" if b["Book GSTIN"] == c["2B GSTIN"] else "No - same PAN, other state"
         rows.append(r)
 
@@ -303,6 +321,8 @@ def summary(df):
         **{"No. of Records": ("Sr.", "count"),
            "Book Taxable": ("Book Taxable", "sum"),
            "Book Tax": ("Book Tax", "sum"),
+           "Book Invoice Value": ("Book Invoice Value", "sum"),
+           "Book TDS / Deduction": ("Book TDS / Deduction", "sum"),
            "Book Total": ("Book Total", "sum"),
            "2B Taxable": ("2B Taxable", "sum"),
            "2B Tax": ("2B Tax", "sum"),
@@ -370,7 +390,7 @@ def write_excel(df, summ):
                     if isinstance(cell.value, datetime):
                         cell.number_format = "dd-mm-yyyy"
 
-            widths = {"Status": 34, "Match Remark": 48, "Supplier (Books)": 30,
+            widths = {"Book TDS / Deduction": 18, "Book Invoice Value": 16, "Status": 34, "Match Remark": 48, "Supplier (Books)": 30,
                       "2B Supplier": 30, "Book GSTIN": 17, "2B GSTIN": 17,
                       "Book Invoice No.": 20, "2B Invoice No.": 20,
                       "Book Nature": 38, "GSTIN Same?": 22}
