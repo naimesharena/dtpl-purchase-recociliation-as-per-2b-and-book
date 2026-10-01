@@ -1,0 +1,9 @@
+# Generated reconciliation reports/state (may contain supplier/accounting data)
+reconciliation_output/
+GSTR2B_vs_Books_Reconciliation.xlsx
+*.reconciliation.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
