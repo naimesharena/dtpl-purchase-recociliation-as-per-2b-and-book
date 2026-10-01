@@ -436,7 +436,7 @@ def pair_score(book, gstr, note=False):
 
 def match_one_to_one(book_records, gstr_records, primary_field, alternative_fields,
                      uniqueness_book_records=None, uniqueness_gstr_records=None):
-    """Match exact GSTIN/reference first, then only unique cross-GSTIN ref/base pairs."""
+    """Match exact GSTIN/reference first, then only unique cross-GSTIN ref/amount pairs."""
     if uniqueness_book_records is None:
         uniqueness_book_records = book_records
     if uniqueness_gstr_records is None:
@@ -526,11 +526,12 @@ def match_one_to_one(book_records, gstr_records, primary_field, alternative_fiel
         method = "Supplier invoice number ↔ 2B document number" if field == "invoice" else f"{field} ↔ 2B document number"
         apply_field(field, idx, method)
 
-    # Conservative fallback for a supplier-registration mismatch: only link an
-    # otherwise-unmatched pair when the normalized document reference AND the
-    # taxable base (rounded to paise) are unique on both complete source sides.
-    # Exact GSTIN matches above always take precedence. Ambiguous candidates are
-    # left open and flagged for review rather than force-matched.
+    # Conservative fallback for a supplier-registration mismatch. A pair must
+    # have a unique normalized document reference plus either (a) a taxable-base
+    # amount equal to paise, or (b) an invoice total equal to paise with the
+    # taxable-base difference within the ₹0.02 rounding tolerance. Uniqueness is
+    # checked against both complete source sides. Exact GSTIN matches above take
+    # priority; ambiguous candidates stay open and flagged for review.
     book_by_id = {b["id"]: b for b in book_records}
     gstr_by_id = {g["id"]: g for g in gstr_records}
     all_book_by_id = {b["id"]: b for b in uniqueness_book_records}
@@ -540,22 +541,36 @@ def match_one_to_one(book_records, gstr_records, primary_field, alternative_fiel
     book_ids_by_ref_amount = defaultdict(set)
     gstr_ids_by_ref_amount = defaultdict(set)
     for b in uniqueness_book_records:
-        amount_key = amount_paise(b.get("base", 0.0))
-        for field in (primary_field, *alternative_fields):
-            token = norm_doc(b.get(field))
-            if token:
-                book_ids_by_ref_amount[(token, amount_key)].add(b["id"])
+        refs = {norm_doc(b.get(field)) for field in (primary_field, *alternative_fields)}
+        refs.discard("")
+        for basis, amount in (("taxable_base", b.get("base", 0.0)), ("invoice_total", b.get("gross", 0.0))):
+            if abs(number(amount)) <= 0.005:
+                continue
+            amount_key = amount_paise(amount)
+            for token in refs:
+                book_ids_by_ref_amount[(token, basis, amount_key)].add(b["id"])
     for g in uniqueness_gstr_records:
         token = norm_doc(g.get("doc_no"))
-        if token:
-            gstr_ids_by_ref_amount[(token, amount_paise(g.get("base", 0.0)))].add(g["id"])
+        if not token:
+            continue
+        for basis, amount in (("taxable_base", g.get("base", 0.0)), ("invoice_total", g.get("invoice_value", 0.0))):
+            if abs(number(amount)) > 0.005:
+                gstr_ids_by_ref_amount[(token, basis, amount_paise(amount))].add(g["id"])
 
     cross_candidates_by_book = defaultdict(set)
     cross_candidates_by_gstr = defaultdict(set)
-    fallback_method = "Unique document reference + taxable base (paise match); GSTIN differs"
+    valid_basis_by_pair = defaultdict(set)
+
+    def flag_cross_candidate(bid, gid):
+        if bid in book_by_id and bid not in used_books:
+            cross_candidates_by_book[bid].add(gid)
+        if gid in gstr_by_id and gid not in matches_by_gstr:
+            cross_candidates_by_gstr[gid].add(bid)
+
     for key in sorted(set(book_ids_by_ref_amount) & set(gstr_ids_by_ref_amount)):
         book_ids = book_ids_by_ref_amount[key]
         gstr_ids = gstr_ids_by_ref_amount[key]
+        basis = key[1]
         cross_pairs = [
             (bid, gid) for bid in book_ids for gid in gstr_ids
             if all_book_by_id[bid].get("gstin")
@@ -564,29 +579,47 @@ def match_one_to_one(book_records, gstr_records, primary_field, alternative_fiel
         ]
         if not cross_pairs:
             continue
-        if len(book_ids) == 1 and len(gstr_ids) == 1:
-            bid, gid = next(iter(book_ids)), next(iter(gstr_ids))
-            b, g = all_book_by_id[bid], all_gstr_by_id[gid]
-            if bid in book_by_id and gid in gstr_by_id and bid not in used_books and gid not in matches_by_gstr:
-                matches_by_gstr[gid] = {
-                    "book": b, "method": fallback_method,
-                    "duplicate": False, "ambiguous": False, "gstin_mismatch": True,
-                }
-                matches_by_book[bid] = g
-                used_books.add(bid)
-            else:
-                if bid in book_by_id and bid not in used_books:
-                    cross_candidates_by_book[bid].add(gid)
-                if gid in gstr_by_id and gid not in matches_by_gstr:
-                    cross_candidates_by_gstr[gid].add(bid)
-        else:
-            # At least one complete source side has a duplicate ref/base key.
-            # Do not choose among candidates, even if a score would pick one.
+        if len(book_ids) != 1 or len(gstr_ids) != 1:
+            # A duplicate reference/amount on either source side is not safe to
+            # auto-link under this amount basis.
             for bid, gid in cross_pairs:
-                if bid in book_by_id and bid not in used_books:
-                    cross_candidates_by_book[bid].add(gid)
-                if gid in gstr_by_id and gid not in matches_by_gstr:
-                    cross_candidates_by_gstr[gid].add(bid)
+                flag_cross_candidate(bid, gid)
+            continue
+        bid, gid = next(iter(book_ids)), next(iter(gstr_ids))
+        b, g = all_book_by_id[bid], all_gstr_by_id[gid]
+        if basis == "invoice_total" and abs(number(b.get("base")) - number(g.get("base"))) > TOLERANCE:
+            # Equal gross totals are accepted only when the taxable-base delta
+            # is small enough to be a rounding difference.
+            flag_cross_candidate(bid, gid)
+            continue
+        valid_basis_by_pair[(bid, gid)].add(basis)
+
+    valid_gstr_by_book = defaultdict(set)
+    valid_books_by_gstr = defaultdict(set)
+    for bid, gid in valid_basis_by_pair:
+        valid_gstr_by_book[bid].add(gid)
+        valid_books_by_gstr[gid].add(bid)
+
+    for (bid, gid), bases in valid_basis_by_pair.items():
+        if len(valid_gstr_by_book[bid]) != 1 or len(valid_books_by_gstr[gid]) != 1:
+            flag_cross_candidate(bid, gid)
+            continue
+        b, g = all_book_by_id[bid], all_gstr_by_id[gid]
+        if bid not in book_by_id or gid not in gstr_by_id or bid in used_books or gid in matches_by_gstr:
+            flag_cross_candidate(bid, gid)
+            continue
+        if bases == {"taxable_base", "invoice_total"}:
+            fallback_method = "Unique document reference + taxable base and invoice total (both paise match); GSTIN differs"
+        elif "taxable_base" in bases:
+            fallback_method = "Unique document reference + taxable base (paise match); GSTIN differs"
+        else:
+            fallback_method = "Unique document reference + invoice total (paise match; base within ₹0.02); GSTIN differs"
+        matches_by_gstr[gid] = {
+            "book": b, "method": fallback_method,
+            "duplicate": False, "ambiguous": False, "gstin_mismatch": True,
+        }
+        matches_by_book[bid] = g
+        used_books.add(bid)
 
     # Mark leftover book references which point at a 2B reference already used
     # by a different book row; these are likely duplicate/reused references.
@@ -1049,7 +1082,7 @@ def build_recon_rows(book_records, matches_by_book, rejected_matches_by_book, or
             if g.get("match_duplicate"):
                 status = "Matched - duplicate reference; review"
             elif g.get("match_gstin_mismatch"):
-                status = "Matched - unique ref/base; GSTIN differs - review"
+                status = "Matched - unique ref/amount; GSTIN differs - review"
             base_comp = b["signed_base"] - g["signed_base"]
             tax_comp = {
                 "igst": b["signed_igst"] - g["signed_igst"],
@@ -1073,7 +1106,7 @@ def build_recon_rows(book_records, matches_by_book, rejected_matches_by_book, or
             if reject:
                 match_status = "Rejected in GSTR-2B (not eligible)"
             elif b.get("cross_gstin_review"):
-                match_status = "Cross-GSTIN candidate is ambiguous or already matched elsewhere; review"
+                match_status = "Cross-GSTIN candidate failed uniqueness/amount checks or was already matched; review"
             elif b["possible_duplicate"]:
                 match_status = "Unmatched duplicate reference - review"
             elif b["no_tax"]:
@@ -1097,7 +1130,7 @@ def build_recon_rows(book_records, matches_by_book, rejected_matches_by_book, or
             "book_all_items": b["all_items"], "book_round_off": b["round_off"],
             "match_status": match_status, "match_method": method,
             "2b_supplier_gstin": g["gstin"] if g else "",
-            "gstin_match": "Yes" if g and b["gstin"] == g["gstin"] else ("No - unique ref/base fallback" if g else ""),
+            "gstin_match": "Yes" if g and b["gstin"] == g["gstin"] else ("No - unique ref/amount fallback" if g else ""),
             "2b_document_no": two_doc,
             "2b_document_date": two_date, "2b_period": two_period, "2b_filing_date": two_filing,
             "2b_itc_availability": avail, "2b_rcm": rcm, "2b_raw_base": two_base,
@@ -1135,7 +1168,7 @@ def build_credit_note_rows(book_records, matches_by_book, amendments_by_original
             if g.get("match_duplicate"):
                 status = "Matched - duplicate reference; review"
             elif g.get("match_gstin_mismatch"):
-                status = "Matched - unique ref/base; GSTIN differs - review"
+                status = "Matched - unique ref/amount; GSTIN differs - review"
             base_variance = book_base_effect - two_base_effect
             igst_diff = book_tax["igst"] - two_tax["igst"]
             cgst_diff = book_tax["cgst"] - two_tax["cgst"]
@@ -1150,7 +1183,7 @@ def build_credit_note_rows(book_records, matches_by_book, amendments_by_original
             signed_base_2b, signed_gst_2b = two_base_effect, g["signed_gst"]
         else:
             if b.get("cross_gstin_review"):
-                status = "Cross-GSTIN candidate is ambiguous or already matched elsewhere; review"
+                status = "Cross-GSTIN candidate failed uniqueness/amount checks or was already matched; review"
             elif b["possible_duplicate"]:
                 status = "Unmatched duplicate reference - review"
             else:
@@ -1172,7 +1205,7 @@ def build_credit_note_rows(book_records, matches_by_book, amendments_by_original
             "book_sgst_signed": b["signed_sgst"], "book_igst_signed": b["signed_igst"], "book_gst_signed": b["signed_gst"],
             "match_status": status, "match_method": method,
             "2b_supplier_gstin": g["gstin"] if g else "",
-            "gstin_match": "Yes" if g and b["gstin"] == g["gstin"] else ("No - unique ref/base fallback" if g else ""),
+            "gstin_match": "Yes" if g and b["gstin"] == g["gstin"] else ("No - unique ref/amount fallback" if g else ""),
             "2b_note_no": two_doc, "2b_note_type": two_type,
             "2b_note_date": two_date, "2b_period": two_period, "2b_filing_date": two_filing,
             "2b_itc_availability": availability, "2b_rcm": rcm, "2b_raw_base": raw_base,
@@ -1218,11 +1251,11 @@ def build_gstr_detail_rows(b2b, notes, amendments, rejected):
         if e.get("event") == "Rejected":
             reconciliation_status = "Rejected - not eligible"
         elif book and e.get("match_gstin_mismatch"):
-            reconciliation_status = "Matched via unique ref/base; GSTIN differs - review"
+            reconciliation_status = "Matched via unique ref/amount; GSTIN differs - review"
         elif book:
             reconciliation_status = "Matched to book"
         elif e.get("cross_gstin_review"):
-            reconciliation_status = "Cross-GSTIN candidate is ambiguous or already matched elsewhere; review"
+            reconciliation_status = "Cross-GSTIN candidate failed uniqueness/amount checks or was already matched; review"
         else:
             reconciliation_status = "Not located in books"
         rows.append({
@@ -1248,7 +1281,7 @@ def build_gstr_detail_rows(b2b, notes, amendments, rejected):
             "old_document_no": e.get("old_doc_no", ""), "linked_original_id": e.get("linked_original_id", ""),
             "linked_book_id": book.get("id", "") if book else "",
             "book_gstin": book.get("gstin", "") if book else "",
-            "gstin_match": "Yes" if book and book.get("gstin") == e.get("gstin") else ("No - unique ref/base fallback" if book else ""),
+            "gstin_match": "Yes" if book and book.get("gstin") == e.get("gstin") else ("No - unique ref/amount fallback" if book else ""),
             "book_date": book.get("date") if book else None,
             "book_month": book.get("date") if book else None,
             "book_match_method": e.get("match_method", ""),
@@ -1291,7 +1324,7 @@ def build_open_book_rows(purchases, notes):
             continue
         status = ""
         if b.get("cross_gstin_review"):
-            status = "Cross-GSTIN document/base candidate is ambiguous or already matched elsewhere; review before linking"
+            status = "Cross-GSTIN reference/amount candidate failed uniqueness or amount checks; review before linking"
         elif b.get("possible_duplicate"):
             status = "Duplicate/reused reference; one-to-one match went to another book row"
         elif b["no_tax"]:
@@ -1343,7 +1376,7 @@ def build_open_gstr_rows(b2b, notes, amendments, rejected):
             "signed_cess_effect": e.get("signed_cess", 0.0),
             "signed_gst_effect": e.get("signed_gst", 0.0),
             "linked_original_id": e.get("linked_original_id", ""),
-            "review_note": e.get("event_note", "") or ("Potential cross-GSTIN reference/base candidate was ambiguous or already assigned; left unmatched for review." if e.get("cross_gstin_review") else ""),
+            "review_note": e.get("event_note", "") or ("Potential cross-GSTIN reference/amount candidate failed uniqueness or amount checks; left unmatched for review." if e.get("cross_gstin_review") else ""),
         })
     return rows
 
@@ -1592,7 +1625,7 @@ def build_dashboard(workbook, months, summary, counts, control_rows, formats):
         ("IMS-rejected B2B records", counts["rejected_rows"]),
         ("Invoice pairs matched one-to-one", counts["matched_invoice_pairs"]),
         ("Credit-note pairs matched one-to-one", counts["matched_note_pairs"]),
-        ("Unique ref/base matches with GSTIN mismatch (review)", counts["gstin_mismatch_matches"]),
+        ("Unique ref/amount matches with GSTIN mismatch (review)", counts["gstin_mismatch_matches"]),
         ("Open book entries", counts["open_book_rows"]),
         ("Book base QA rows with ledger-sum difference > ₹1", counts["base_qa_rows"]),
         ("2B original records not located in books", counts["open_2b_original_rows"]),
@@ -1613,7 +1646,7 @@ def build_dashboard(workbook, months, summary, counts, control_rows, formats):
         "Calculated book base uses Gross Total + All Items − GST − Round Off; a narrow Purchase Accounts contra/withholding adjustment is applied only for the identified twice-the-source-amount pattern. Ledger-sum differences are visible on Book Base QA.",
         "No-tax-base is kept separately: source books have no CGST/SGST/IGST split on those entries, so their calculated taxable/total amount is shown separately and not included in 2B GST totals.",
         "RCM, ITC-not-available, and rejected records are shown separately; see Source Control and Method & Notes before relying on any total.",
-        "A cross-GSTIN match is allowed only for a unique normalized document reference plus exact-to-paise taxable base on both source sides; every such match is visibly flagged for GSTIN review.",
+        "A cross-GSTIN match requires a unique normalized document reference and either a paise-exact taxable base or a paise-exact invoice total with taxable bases within ₹0.02, unique on both source sides; every such match is flagged for GSTIN review.",
         "Use Month Flow to see documents booked in one month but reflected in another month's supplier GSTR-1 period.",
     ]
     for i, note in enumerate(notes, start=29):
@@ -1682,7 +1715,7 @@ def write_workbook(months, invoice_rows, note_rows, gstr_rows, open_book, base_q
         "sgst_variance", "gst_variance", "amendment", "amendment_period", "amendment_base_delta", "amendment_gst_delta", "timing", "possible_duplicate", "rejected_2b_doc_no",
     ]) for r in invoice_rows]
     add_table_sheet(workbook, "Book Invoice Recon", "Book purchase register vs GSTR-2B invoices",
-                    "All purchase-register rows are included. Filter Reconciliation Status / GSTIN Match? / Timing Status to review exceptions. Unique cross-GSTIN reference-and-base matches are linked but explicitly flagged for supplier-registration review. Calculated book base = Gross Total + All Items − GST − Round Off, with a narrowly-triggered Purchase Accounts adjustment for the identified contra/withholding pattern. Ledger-column sum and its difference from the calculated base are retained for QA; see Book Base QA.",
+                    "All purchase-register rows are included. Filter Reconciliation Status / GSTIN Match? / Timing Status to review exceptions. Unique cross-GSTIN reference-and-amount matches are linked but explicitly flagged for supplier-registration review. Calculated book base = Gross Total + All Items − GST − Round Off, with a narrowly-triggered Purchase Accounts adjustment for the identified contra/withholding pattern. Ledger-column sum and its difference from the calculated base are retained for QA; see Book Base QA.",
                     invoice_headers, invoice_rows_values, formats, freeze_cols=6, tab_color="#4472C4")
 
     note_headers = [
@@ -1707,7 +1740,7 @@ def write_workbook(months, invoice_rows, note_rows, gstr_rows, open_book, base_q
         "amendment", "amendment_period", "amendment_base_delta", "amendment_gst_delta", "timing", "possible_duplicate", "sign_note",
     ]) for r in note_rows]
     add_table_sheet(workbook, "Book Credit Note Recon", "Book debit-note register vs GSTR-2B supplier notes",
-                    "The uploaded books contain Debit Note registers. These are signed negative for purchases/ITC based on the matching GSTR-2B supplier credit-note examples. Type C in 2B is negative; type D is positive. Unique cross-GSTIN note matches based on reference and paise-exact taxable base are flagged for review. Book base uses the gross-derived method; ledger-sum differences are exposed for QA. Review unmatched and duplicate note references.",
+                    "The uploaded books contain Debit Note registers. These are signed negative for purchases/ITC based on the matching GSTR-2B supplier credit-note examples. Type C in 2B is negative; type D is positive. Unique cross-GSTIN note matches based on reference and a qualifying paise-exact base or invoice total are flagged for review. Book base uses the gross-derived method; ledger-sum differences are exposed for QA. Review unmatched and duplicate note references.",
                     note_headers, note_rows_values, formats, freeze_cols=6, tab_color="#C65911")
 
     gstr_headers = [
@@ -1813,8 +1846,8 @@ def write_workbook(months, invoice_rows, note_rows, gstr_rows, open_book, base_q
         ("Period / entity", "FY 2025-26. GSTR-2B recipient GSTIN shown in the report: 24AAJCD4457C1ZV. Source report generation date: 29-Sep-2026."),
         ("Book month", "The Date column in each Purchase Register and Debit Note Register is used as the posting month."),
         ("2B month", "The supplier GSTR-1/IFF/1A/GSTR-5 Period field on the 2B transaction is used as the 2B period. Supplier filing date is shown separately."),
-        ("Invoice matching", "Exact GSTIN + normalized Voucher No. ↔ 2B invoice number is tried first; Supplier Invoice No. is a fallback. Only after exact-GSTIN matching, a cross-GSTIN fallback may link an otherwise-unmatched invoice when the normalized document reference and calculated book taxable base / 2B taxable base (rounded to paise) occur exactly once on each complete source side. The cross-GSTIN match is explicitly flagged for review. Any duplicate/ambiguous reference-and-base key is left unmatched. No name-only fuzzy matching."),
-        ("Credit-note matching", "Exact GSTIN + normalized book debit-note Voucher No. ↔ 2B note number is tried first; Voucher Ref No. is a fallback. The same unique reference + paise-exact taxable-base cross-GSTIN rule applies only between book debit notes and 2B supplier notes, and is flagged for review. Duplicate/ambiguous keys remain unmatched."),
+        ("Invoice matching", "Exact GSTIN + normalized Voucher No. ↔ 2B invoice number is tried first; Supplier Invoice No. is a fallback. Only after exact-GSTIN matching, a cross-GSTIN fallback may link an otherwise-unmatched invoice when the normalized document reference plus either (a) book taxable base = 2B taxable base to paise, or (b) book Gross Total = 2B Invoice Value to paise with taxable-base difference no more than ₹0.02, is unique on each complete source side. The cross-GSTIN match is explicitly flagged for review. Duplicate/ambiguous reference-and-amount keys remain unmatched. No name-only fuzzy matching."),
+        ("Credit-note matching", "Exact GSTIN + normalized book debit-note Voucher No. ↔ 2B note number is tried first; Voucher Ref No. is a fallback. The same unique reference plus paise-exact base, or paise-exact invoice total with taxable-base difference within ₹0.02, rule applies only between book debit notes and 2B supplier notes, and is flagged for review. Duplicate/ambiguous keys remain unmatched."),
         ("Normalization", "Reference normalization converts to uppercase and removes spaces/punctuation only. GSTIN is retained as part of every key."),
         ("Book base", "Calculated book base = Gross Total + source All Items − CGST − SGST − IGST − Cess − Round Off. For Purchase Register rows only, Purchase Accounts is added back when the ledger-column sum exceeds this bridge by approximately twice the source Purchase Accounts amount (₹0.05 tolerance), the observed contra/withholding pattern. This is a targeted source-data rule, not a general posting assumption. The raw ledger-column sum and ledger-sum-minus-base difference remain on Book Invoice Recon / Book Credit Note Recon / Open Book Items, with differences over ₹1 listed on Book Base QA. Review that tab before treating totals as final."),
         ("Book Base QA", "Rows on Book Base QA have a ledger-column-sum difference greater than ₹1 from the calculated base. Rows where the Purchase Accounts pattern was applied are marked; verify those ledger postings against source vouchers. Other rows are review exceptions, not automatically errors."),
